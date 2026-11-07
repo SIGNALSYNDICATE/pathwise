@@ -12,7 +12,7 @@ import {
   Lightbulb,
   CheckCircle2,
 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 interface JobApplication {
   id: string;
@@ -72,11 +72,6 @@ interface ApiResponse {
   insights?: CareerInsights;
   error?: string;
 }
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 function formatRate(value: number | null | undefined) {
   return value == null ? "—" : `${value}%`;

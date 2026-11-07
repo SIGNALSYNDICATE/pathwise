@@ -2,12 +2,7 @@
 
 import { useState } from 'react'
 import { Sparkles, Loader2, FileText, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabase } from '@/lib/supabase'
 
 interface ResumeOptimizerResult {
   overall_feedback: string
