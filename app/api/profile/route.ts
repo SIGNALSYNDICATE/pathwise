@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       .select('full_name, phone_e164, phone_country, sms_opt_in')
       .eq('user_id', auth.user.id)
       .maybeSingle()
-    data = fallback.data
+    data = fallback.data ? { ...fallback.data, target_roles: null } : null
     error = fallback.error
   }
 
