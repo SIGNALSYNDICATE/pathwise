@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import OpenAI from 'openai'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-const supabase = createServerSupabase()
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
+
+// Base Supabase config
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://aofvzgqksbhgljzowyby.supabase.co'
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvZnZ6Z3Frc2JoZ2xqem93eWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0MzAxMTEsImV4cCI6MjA3MDAwNjExMX0.XA4xgMqrMy9finlY9xvOhPdrQIsKYlRGmrNx_1D6db4'
 
 type Diagnosis = {
   performance_summary: string
@@ -32,6 +40,13 @@ export async function POST(req: Request) {
       )
     }
 
+    // Create a per-request Supabase client that includes the user's token.
+    // This allows RLS to evaluate auth.uid() correctly during the SELECT query.
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
     if (authErr || !user) {
       return NextResponse.json(
@@ -46,6 +61,13 @@ export async function POST(req: Request) {
       .select('*')
       .eq('user_id', user.id)
 
+    // Keep this log until you confirm the data loads, then you can remove it.
+    console.log('=== DEBUG career-insights ===')
+    console.log('Auth user.id:', user.id)
+    console.log('DB error:', error)
+    console.log('Apps returned count:', apps?.length ?? 0)
+    console.log('==============================')
+
     if (error) {
       console.error('DB error:', error)
       return NextResponse.json({ error: 'db_error', message: error.message }, { status: 500 })
@@ -57,7 +79,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: 'insufficient_data',
-          message: 'Add a few job applications first so Gemma has something to analyze.',
+          message: 'Add a few job applications first so the AI has something to analyze.',
         },
         { status: 422 }
       )
@@ -68,61 +90,32 @@ export async function POST(req: Request) {
     const cv_text: string | undefined = body.cv_text
     const job_description: string | undefined = body.job_description
 
-    // ── 5. Call Google AI Studio (OpenAI Compatible Endpoint) ──
-    const apiKey = process.env.GEMMA_API_KEY
-    const model = process.env.GEMMA_MODEL ?? 'gemma-3-27b-it'
-
-    if (!apiKey) {
+    // ── 5. Call OpenAI ──────────────────────────────────
+    if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { error: 'config_error', message: 'GEMMA_API_KEY is not set on the server.' },
+        { error: 'config_error', message: 'OPENAI_API_KEY is not set on the server.' },
         { status: 500 }
       )
     }
 
     const prompt = buildPrompt(metrics, apps ?? [], cv_text, job_description)
-    
-    // Google's OpenAI-compatible endpoint for Auth Keys (AQ...)
-    const aiUrl = `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`
 
-    const aiRes = await fetch(aiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`, 
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
-        max_tokens: 4096,
-      }),
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+      max_tokens: 4096,
     })
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text().catch(() => '')
-      console.error('Gemma/Google error:', aiRes.status, errText)
-
-      let message = `AI service returned ${aiRes.status}.`
-      if (aiRes.status === 400) message = 'Gemma rejected the request. Check the model name and API key.'
-      if (aiRes.status === 401 || aiRes.status === 403) message = 'Gemma API key is invalid or lacks access.'
-      if (aiRes.status === 404) message = `Model "${model}" not found. Try gemma-3-27b-it in your .env.local.`
-      if (aiRes.status === 429) message = 'Gemma rate limit reached. Wait a minute and retry.'
-
-      return NextResponse.json({ error: 'ai_failed', message }, { status: 502 })
-    }
-
-    const raw = await aiRes.json()
-    
-    // OpenAI format returns choices[0].message.content
-    const content: string = raw.choices?.[0]?.message?.content ?? '{}'
+    const content: string = completion.choices[0].message.content ?? '{}'
 
     if (!content || content === '{}') {
-      console.error('Gemma returned no content:', JSON.stringify(raw).slice(0, 500))
+      console.error('OpenAI returned no content:', JSON.stringify(completion).slice(0, 500))
       return NextResponse.json(
         {
           error: 'ai_empty',
-          message: 'Gemma returned an empty response. Try again.',
+          message: 'OpenAI returned an empty response. Try again.',
         },
         { status: 502 }
       )
@@ -133,15 +126,29 @@ export async function POST(req: Request) {
     try {
       parsed = JSON.parse(content)
     } catch {
-      // Fallback if Gemma wraps the JSON in markdown or text
       const match = content.match(/\{[\s\S]*\}/)
       parsed = match ? JSON.parse(match[0]) : {}
     }
 
     const safe = sanitize(parsed, metrics)
     return NextResponse.json({ diagnosis: safe, metrics })
+    
   } catch (e: any) {
     console.error('career-insights unexpected error:', e)
+
+    if (e?.status === 401) {
+      return NextResponse.json(
+        { error: 'ai_failed', message: 'OpenAI API key is invalid or lacks access.' },
+        { status: 502 }
+      )
+    }
+    if (e?.status === 429) {
+      return NextResponse.json(
+        { error: 'ai_failed', message: 'OpenAI rate limit reached. Wait a minute and retry.' },
+        { status: 502 }
+      )
+    }
+
     return NextResponse.json(
       { error: 'ai_failed', message: e?.message ?? 'Unknown error.' },
       { status: 500 }
