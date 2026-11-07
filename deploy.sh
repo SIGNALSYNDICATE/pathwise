@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deploy Pathwise on a Debian/Ubuntu server.
-# Checks Node.js and npm, builds the app, runs it on port 3000,
+# Checks Node.js and npm, builds the app, runs it on port 8080,
 # then installs nginx and proxies public HTTP traffic to it.
 #
 # Usage (on the server, from this directory):
@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-APP_PORT=3000
+APP_PORT=8080
 NODE_MAJOR_MIN=18
 NODE_MINOR_MIN=17
 REQUIRED_ENV_VARS=(
@@ -194,7 +194,7 @@ WorkingDirectory=${APP_DIR}
 Environment=NODE_ENV=production
 Environment=PORT=${APP_PORT}
 Environment=PATH=${node_dir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=${npm_bin} run start -- -H 127.0.0.1 -p ${APP_PORT}
+ExecStart=${npm_bin} run start -- -H 0.0.0.0 -p ${APP_PORT}
 Restart=on-failure
 RestartSec=5
 
@@ -244,6 +244,7 @@ EOF
 
   if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
     ufw allow 80/tcp
+    ufw allow ${APP_PORT}/tcp
   fi
 }
 
@@ -270,7 +271,7 @@ main() {
   wait_for_app
 
   log "Pathwise is up"
-  printf '  App:   http://127.0.0.1:%s\n' "${APP_PORT}"
+  printf '  App:   http://%s:%s\n' "$(hostname -I 2>/dev/null | awk '{print $1}')" "${APP_PORT}"
   printf '  Nginx: http://%s/\n' "$(hostname -I 2>/dev/null | awk '{print $1}')"
   printf '  Logs:  journalctl -u %s -f\n' "${SERVICE_NAME}"
 }

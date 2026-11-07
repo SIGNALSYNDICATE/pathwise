@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-const supabase = createServerSupabase()
 
 type Diagnosis = {
   performance_summary: string
@@ -32,6 +31,7 @@ export async function POST(req: Request) {
       )
     }
 
+    const supabase = createServerSupabase()
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
     if (authErr || !user) {
       return NextResponse.json(
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     const job_description: string | undefined = body.job_description
 
     // ── 5. Call Google AI Studio (OpenAI Compatible Endpoint) ──
-    const apiKey = process.env.GEMMA_API_KEY
+    const apiKey = process.env.GEMMA_API_KEY || process.env.OPENAI_API_KEY
     const model = process.env.GEMMA_MODEL ?? 'gemma-3-27b-it'
 
     if (!apiKey) {

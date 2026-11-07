@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-const supabase = createServerSupabase()
 
 export async function POST(req: Request) {
   try {
@@ -13,6 +12,7 @@ export async function POST(req: Request) {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
     if (!token) return NextResponse.json({ error: 'unauthorized', message: 'Missing auth token.' }, { status: 401 })
 
+    const supabase = createServerSupabase()
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
     if (authErr || !user) return NextResponse.json({ error: 'unauthorized', message: 'Session expired.' }, { status: 401 })
 
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Call Gemma (OpenAI-compatible endpoint)
-    const apiKey = process.env.GEMMA_API_KEY
+    const apiKey = process.env.GEMMA_API_KEY || process.env.OPENAI_API_KEY
     const model = process.env.GEMMA_MODEL ?? 'gemma-3-27b-it'
 
     if (!apiKey) {
