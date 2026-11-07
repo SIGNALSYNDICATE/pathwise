@@ -63,27 +63,58 @@ version_at_least() {
   return 1
 }
 
-install_node() {
-  log "Node.js ${NODE_MAJOR_MIN}.${NODE_MINOR_MIN}+ is missing. Installing Node.js 20."
+node_arch() {
+  case "$(uname -m)" in
+    x86_64) printf 'x64' ;;
+    aarch64|arm64) printf 'arm64' ;;
+    *) die "Unsupported architecture: $(uname -m)" ;;
+  esac
+}
+
+install_node_official() {
+  local arch version tarball url tmp
+  arch="$(node_arch)"
   apt-get update
-  apt-get install -y ca-certificates curl gnupg
-  mkdir -p /etc/apt/keyrings
-  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-    | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
-    > /etc/apt/sources.list.d/nodesource.list
-  apt-get update
-  apt-get install -y nodejs
+  apt-get install -y ca-certificates curl xz-utils
+  version="$(
+    curl -fsSL "https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt" \
+      | awk -v arch="${arch}" '$2 ~ ("node-v22\\..*-linux-" arch "\\.tar\\.xz$") { print $2; exit }' \
+      | sed -E 's/^node-v([0-9.]+)-linux-.*/\1/'
+  )"
+  [[ -n "${version}" ]] || die "Could not resolve the latest Node.js 22 release."
+  tarball="node-v${version}-linux-${arch}.tar.xz"
+  url="https://nodejs.org/dist/v${version}/${tarball}"
+  log "Installing Node.js ${version} from nodejs.org (includes npm)"
+  tmp="$(mktemp)"
+  curl -fsSL "${url}" -o "${tmp}"
+  tar -xJf "${tmp}" -C /usr/local --strip-components=1
+  rm -f "${tmp}"
+  hash -r
+}
+
+ensure_node_and_npm() {
+  export PATH="/usr/local/bin:${PATH}"
+  hash -r
+
+  if command -v node >/dev/null 2>&1 && version_at_least "$(node -v)" && ! command -v npm >/dev/null 2>&1; then
+    log "Node.js $(node -v) is installed, but Ubuntu's nodejs package does not include npm. Installing npm."
+    apt-get update
+    apt-get install -y npm
+    hash -r
+  fi
+
+  if ! command -v node >/dev/null 2>&1 || ! version_at_least "$(node -v)" || ! command -v npm >/dev/null 2>&1; then
+    install_node_official
+  fi
+
+  command -v node >/dev/null 2>&1 || die "node is not on PATH after installation."
+  command -v npm >/dev/null 2>&1 || die "npm is not on PATH after installation."
+  version_at_least "$(node -v)" || die "Node.js $(node -v) is too old. Need ${NODE_MAJOR_MIN}.${NODE_MINOR_MIN} or newer."
 }
 
 check_runtime() {
   log "Checking project requirements"
-  if ! command -v node >/dev/null 2>&1 || ! version_at_least "$(node -v)"; then
-    install_node
-  fi
-  command -v node >/dev/null 2>&1 || die "node is not on PATH after installation."
-  command -v npm >/dev/null 2>&1 || die "npm is not on PATH. Reinstall Node.js."
-  version_at_least "$(node -v)" || die "Node.js $(node -v) is too old. Need ${NODE_MAJOR_MIN}.${NODE_MINOR_MIN} or newer."
+  ensure_node_and_npm
 
   printf '  node %s\n' "$(node -v)"
   printf '  npm  %s\n' "$(npm -v)"
