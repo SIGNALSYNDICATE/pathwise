@@ -353,7 +353,7 @@ begin
 
   label_title := left(regexp_replace(ad.title, '[[:cntrl:]]+', ' ', 'g'), 60);
   label_company := left(regexp_replace(ad.company, '[[:cntrl:]]+', ' ', 'g'), 60);
-  alert_message := 'Pathwise: New opportunity - ' || label_title || ' at ' || label_company || '.';
+  alert_message := 'Pathwise: New opportunity - ' || label_title || ' at ' || label_company || '. Log in to view: https://job-dash-ashy.vercel.app/';
 
   select exists (
     select 1
@@ -489,7 +489,7 @@ begin
     || left(regexp_replace(app.role, '[[:cntrl:]]+', ' ', 'g'), 60)
     || ' at '
     || left(regexp_replace(app.company, '[[:cntrl:]]+', ' ', 'g'), 60)
-    || '. You have not applied to this role yet.';
+    || '. You have not applied to this role yet. Log in to view: https://job-dash-ashy.vercel.app/';
 
   with candidates as (
     select p.user_id, min(p.phone_e164) as phone_e164
