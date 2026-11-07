@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     if (isMissingSchema(error)) {
       return json(req, { sent: false, reason: 'migration_required', message: MISSING_MIGRATION_MESSAGE }, 503)
     }
-    console.error('Opportunity alert claim failed:', error.code ?? 'unknown')
+    console.error('Opportunity alert claim failed:', error.code ?? 'unknown', error.message)
     return json(req, { sent: false, reason: 'sms_failed' }, 500)
   }
 

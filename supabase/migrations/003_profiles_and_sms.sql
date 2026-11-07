@@ -331,7 +331,7 @@ declare
   ad public.job_advertisements%rowtype;
   label_title text;
   label_company text;
-  message text;
+  alert_message text;
   alerts jsonb := '[]'::jsonb;
   has_id boolean;
 begin
@@ -353,7 +353,7 @@ begin
 
   label_title := left(regexp_replace(ad.title, '[[:cntrl:]]+', ' ', 'g'), 60);
   label_company := left(regexp_replace(ad.company, '[[:cntrl:]]+', ' ', 'g'), 60);
-  message := 'Pathwise: New opportunity - ' || label_title || ' at ' || label_company || '.';
+  alert_message := 'Pathwise: New opportunity - ' || label_title || ' at ' || label_company || '.';
 
   select exists (
     select 1
@@ -379,7 +379,7 @@ begin
       insert into public.sms_notifications (
         user_id, event_type, dedupe_key, message, phone_e164, status
       )
-      select candidates.user_id, 'opportunity_saved', 'ad:' || ad.id::text, message, candidates.phone_e164, 'pending'
+      select candidates.user_id, 'opportunity_saved', 'ad:' || ad.id::text, alert_message, candidates.phone_e164, 'pending'
       from candidates
       on conflict (user_id, event_type, dedupe_key) do update
         set status = 'pending',
@@ -415,7 +415,7 @@ begin
       insert into public.sms_notifications (
         user_id, event_type, dedupe_key, message, phone_e164, status
       )
-      select candidates.user_id, 'opportunity_saved', 'ad:' || ad.id::text, message, candidates.phone_e164, 'pending'
+      select candidates.user_id, 'opportunity_saved', 'ad:' || ad.id::text, alert_message, candidates.phone_e164, 'pending'
       from candidates
       on conflict (user_id, event_type, dedupe_key) do update
         set status = 'pending',
@@ -459,7 +459,7 @@ declare
   company_key text;
   role_key text;
   dedupe text;
-  message text;
+  alert_message text;
   alerts jsonb;
 begin
   if uid is null then
@@ -485,7 +485,7 @@ begin
   end if;
 
   dedupe := 'role:' || company_key || '|' || role_key;
-  message := 'Pathwise: Someone else applied to '
+  alert_message := 'Pathwise: Someone else applied to '
     || left(regexp_replace(app.role, '[[:cntrl:]]+', ' ', 'g'), 60)
     || ' at '
     || left(regexp_replace(app.company, '[[:cntrl:]]+', ' ', 'g'), 60)
@@ -523,7 +523,7 @@ begin
     insert into public.sms_notifications (
       user_id, event_type, dedupe_key, message, phone_e164, status
     )
-    select candidates.user_id, 'peer_applied', dedupe, message, candidates.phone_e164, 'pending'
+    select candidates.user_id, 'peer_applied', dedupe, alert_message, candidates.phone_e164, 'pending'
     from candidates
     on conflict (user_id, event_type, dedupe_key) do update
       set status = 'pending',

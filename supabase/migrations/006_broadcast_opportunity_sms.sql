@@ -10,12 +10,13 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
+#variable_conflict use_column
 declare
   uid uuid := auth.uid();
   ad public.job_advertisements%rowtype;
   label_title text;
   label_company text;
-  message text;
+  alert_message text;
   alerts jsonb := '[]'::jsonb;
   has_id boolean;
 begin
@@ -37,7 +38,7 @@ begin
 
   label_title := left(regexp_replace(ad.title, '[[:cntrl:]]+', ' ', 'g'), 60);
   label_company := left(regexp_replace(ad.company, '[[:cntrl:]]+', ' ', 'g'), 60);
-  message := 'Pathwise: New opportunity - ' || label_title || ' at ' || label_company || '.';
+  alert_message := 'Pathwise: New opportunity - ' || label_title || ' at ' || label_company || '.';
 
   select exists (
     select 1
@@ -63,7 +64,7 @@ begin
       insert into public.sms_notifications (
         user_id, event_type, dedupe_key, message, phone_e164, status
       )
-      select candidates.user_id, 'opportunity_saved', 'ad:' || ad.id::text, message, candidates.phone_e164, 'pending'
+      select candidates.user_id, 'opportunity_saved', 'ad:' || ad.id::text, alert_message, candidates.phone_e164, 'pending'
       from candidates
       on conflict (user_id, event_type, dedupe_key) do update
         set status = 'pending',
@@ -74,13 +75,13 @@ begin
              public.sms_notifications.status = 'pending'
              and public.sms_notifications.updated_at < timezone('utc'::text, now()) - interval '10 minutes'
            )
-      returning id, phone_e164, message
+      returning id, phone_e164, sms_notifications.message as alert_body
     )
     select coalesce(
       jsonb_agg(jsonb_build_object(
         'notification_id', upserted.id,
         'phone_e164', upserted.phone_e164,
-        'message', upserted.message
+        'message', upserted.alert_body
       )),
       '[]'::jsonb
     )
@@ -99,7 +100,7 @@ begin
       insert into public.sms_notifications (
         user_id, event_type, dedupe_key, message, phone_e164, status
       )
-      select candidates.user_id, 'opportunity_saved', 'ad:' || ad.id::text, message, candidates.phone_e164, 'pending'
+      select candidates.user_id, 'opportunity_saved', 'ad:' || ad.id::text, alert_message, candidates.phone_e164, 'pending'
       from candidates
       on conflict (user_id, event_type, dedupe_key) do update
         set status = 'pending',
@@ -110,13 +111,13 @@ begin
              public.sms_notifications.status = 'pending'
              and public.sms_notifications.updated_at < timezone('utc'::text, now()) - interval '10 minutes'
            )
-      returning id, phone_e164, message
+      returning id, phone_e164, sms_notifications.message as alert_body
     )
     select coalesce(
       jsonb_agg(jsonb_build_object(
         'notification_id', upserted.id,
         'phone_e164', upserted.phone_e164,
-        'message', upserted.message
+        'message', upserted.alert_body
       )),
       '[]'::jsonb
     )
