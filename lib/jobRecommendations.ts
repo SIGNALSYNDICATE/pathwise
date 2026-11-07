@@ -249,7 +249,7 @@ async function fetchRemotive(query: string): Promise<RawJob[]> {
   const url = `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(query)}&limit=40`
   const payload = asRecord(await fetchJson(url))
   return asList(payload?.jobs)
-    .map((job) => {
+    .map((job): RawJob | null => {
       const title = stringField(job, 'title')
       const applyUrl = stringField(job, 'url')
       if (!title || !applyUrl) return null
@@ -262,7 +262,7 @@ async function fetchRemotive(query: string): Promise<RawJob[]> {
         remote: true,
         postedAt: toIso(job.publication_date),
         applyUrl,
-        source: 'remotive' as const,
+        source: 'remotive',
         description: stringField(job, 'description'),
         tags,
       }
@@ -273,7 +273,7 @@ async function fetchRemotive(query: string): Promise<RawJob[]> {
 async function fetchArbeitnow(): Promise<RawJob[]> {
   const payload = asRecord(await fetchJson('https://www.arbeitnow.com/api/job-board-api'))
   return asList(payload?.data)
-    .map((job) => {
+    .map((job): RawJob | null => {
       const title = stringField(job, 'title')
       const applyUrl = stringField(job, 'url')
       if (!title || !applyUrl) return null
@@ -286,7 +286,7 @@ async function fetchArbeitnow(): Promise<RawJob[]> {
         remote: Boolean(job.remote),
         postedAt: toIso(job.created_at),
         applyUrl,
-        source: 'arbeitnow' as const,
+        source: 'arbeitnow',
         description: stringField(job, 'description'),
         tags,
       }

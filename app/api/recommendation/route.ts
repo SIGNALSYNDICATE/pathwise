@@ -61,7 +61,7 @@ export async function GET(req: Request) {
         .from("job_applications")
         .select("company, role, resume_data, date_applied")
         .eq("user_id", auth.user.id);
-      apps = fallback.data;
+      apps = fallback.data?.map((row) => ({ ...row, job_description: null })) ?? null;
       error = fallback.error;
     }
 

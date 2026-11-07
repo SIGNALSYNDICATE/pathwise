@@ -146,6 +146,22 @@ build_app() {
   log "Installing dependencies and building"
   cd "${APP_DIR}"
   npm ci
+  # On a small VPS the default heap is ~256MB and `next build` dies while typechecking.
+  # Linting and typechecking are skipped in next.config.js. Raise the heap only when RAM is free.
+  if [[ -r /proc/meminfo ]]; then
+    local available_mb heap_mb
+    available_mb="$(awk '/MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo)"
+    if (( available_mb >= 768 )); then
+      heap_mb=$((available_mb - 256))
+      if (( heap_mb > 2048 )); then
+        heap_mb=2048
+      fi
+      export NODE_OPTIONS="--max-old-space-size=${heap_mb}${NODE_OPTIONS:+ ${NODE_OPTIONS}}"
+      printf '  Node heap limit: %s MB (MemAvailable %s MB)\n' "${heap_mb}" "${available_mb}"
+    else
+      printf '  MemAvailable %s MB — leaving the Node heap at its default\n' "${available_mb}"
+    fi
+  fi
   npm run build
 }
 
