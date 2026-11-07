@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server'
-<<<<<<< Updated upstream
-import { createServerSupabase } from '@/lib/supabase'
-=======
 import { isMissingSchema, requireUser } from '@/lib/apiAuth'
->>>>>>> Stashed changes
 import {
   InsufficientProfileError,
   JobBoardsUnavailableError,
@@ -13,11 +9,6 @@ import {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-<<<<<<< Updated upstream
-const supabase = createServerSupabase()
-
-=======
->>>>>>> Stashed changes
 const ALLOWED_ORIGINS = new Set([
   'http://localhost:3000',
   'http://127.0.0.1:3000',

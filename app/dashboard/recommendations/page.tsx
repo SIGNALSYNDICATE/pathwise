@@ -3,9 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Briefcase, ExternalLink, MapPin, Search } from 'lucide-react'
-<<<<<<< Updated upstream
-import { supabase } from '@/lib/supabase'
-=======
 import { createClient } from '@supabase/supabase-js'
 import TargetRolesForm from '../components/TargetRolesForm'
 
@@ -13,7 +10,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
->>>>>>> Stashed changes
 
 type RecommendedJob = {
   id: string
