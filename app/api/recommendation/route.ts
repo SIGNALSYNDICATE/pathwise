@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import {
   InsufficientProfileError,
   JobBoardsUnavailableError,
@@ -9,7 +9,11 @@ import {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const supabase = createServerSupabase()
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false, autoRefreshToken: false } }
+)
 
 const ALLOWED_ORIGINS = new Set([
   'http://localhost:3000',
