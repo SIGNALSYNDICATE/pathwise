@@ -6,9 +6,15 @@ export type JobApplicationInput = {
   date_applied?: string | null
 }
 
+export type TargetJobInput = {
+  title?: string | null
+  description?: string | null
+}
+
 export type SearchProfile = {
   titles: string[]
   keywords: string[]
+  targetTitles: string[]
 }
 
 export type RecommendedJob = {
@@ -32,7 +38,7 @@ export type RecommendationResult = {
 
 export class InsufficientProfileError extends Error {
   constructor() {
-    super('Add a few applications or a resume before we can recommend roles.')
+    super('Add a target role during onboarding, or add an application or resume, before we can recommend jobs.')
     this.name = 'InsufficientProfileError'
   }
 }
@@ -47,6 +53,7 @@ export class JobBoardsUnavailableError extends Error {
 const CACHE_TTL_MS = 5 * 60 * 1000
 const MIN_SCORE = 30
 const MAX_JOBS = 40
+const MAX_SEARCH_TITLES = 4
 const FETCH_TIMEOUT_MS = 8000
 
 const STOPWORDS = new Set([
@@ -119,7 +126,26 @@ function tokens(text: string): string[] {
     .filter((token) => token.length >= 3 && token.length <= 32 && !STOPWORDS.has(token) && !/^\d+$/.test(token))
 }
 
-export function buildSearchProfile(apps: JobApplicationInput[]): SearchProfile {
+function uniqueTitles(values: string[]): string[] {
+  const titles: string[] = []
+  const seen = new Set<string>()
+  for (const value of values) {
+    const title = value.trim()
+    if (title.length < 2) continue
+    const key = normalize(title)
+    if (seen.has(key)) continue
+    seen.add(key)
+    titles.push(title)
+  }
+  return titles
+}
+
+export function buildSearchProfile(
+  apps: JobApplicationInput[],
+  targets: TargetJobInput[] = []
+): SearchProfile {
+  const targetTitles = uniqueTitles(targets.map((target) => target.title || ''))
+
   const titleCounts = new Map<string, { label: string; count: number }>()
   for (const app of apps) {
     const role = (app.role || '').trim()
@@ -130,16 +156,22 @@ export function buildSearchProfile(apps: JobApplicationInput[]): SearchProfile {
     else titleCounts.set(key, { label: role, count: 1 })
   }
 
-  const titles = [...titleCounts.values()]
+  const applicationTitles = [...titleCounts.values()]
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-    .slice(0, 3)
     .map((entry) => entry.label)
+
+  const titles = uniqueTitles([...targetTitles, ...applicationTitles]).slice(0, MAX_SEARCH_TITLES)
 
   const withResume = apps
     .filter((app) => usableText(app.resume_data).length > 0)
     .sort((a, b) => (b.date_applied || '').localeCompare(a.date_applied || ''))
   const resume = usableText(withResume[0]?.resume_data)
-  const descriptions = apps.map((app) => usableText(app.job_description)).filter(Boolean).join(' ')
+  const descriptions = [
+    ...apps.map((app) => usableText(app.job_description)),
+    ...targets.map((target) => usableText(target.description)),
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const freq = new Map<string, number>()
   for (const token of tokens(`${resume} ${descriptions}`)) {
@@ -157,12 +189,16 @@ export function buildSearchProfile(apps: JobApplicationInput[]): SearchProfile {
       if (!keywords.includes(token)) keywords.push(token)
     }
   }
+  for (const token of tokens(targets.map((target) => target.description || '').join(' '))) {
+    if (!keywords.includes(token)) keywords.push(token)
+    if (keywords.length >= 48) break
+  }
 
   if (titles.length === 0 && keywords.length === 0) {
     throw new InsufficientProfileError()
   }
 
-  return { titles, keywords: keywords.slice(0, 48) }
+  return { titles, keywords: keywords.slice(0, 48), targetTitles }
 }
 
 function toIso(value: unknown): string | null {
@@ -322,21 +358,24 @@ function scoreJob(job: RawJob, profile: SearchProfile): { score: number; matched
   return { score, matchedTerms: [...matched].slice(0, 8) }
 }
 
-function cacheKey(userId: string, apps: JobApplicationInput[], profile: SearchProfile): string {
+function cacheKey(userId: string, apps: JobApplicationInput[], targets: TargetJobInput[], profile: SearchProfile): string {
   return [
     userId,
     profile.titles.join('|'),
+    profile.targetTitles.join('|'),
     profile.keywords.slice(0, 12).join('|'),
     String(apps.length),
+    String(targets.length),
   ].join('::')
 }
 
 export async function recommendJobs(
   userId: string,
-  apps: JobApplicationInput[]
+  apps: JobApplicationInput[],
+  targets: TargetJobInput[] = []
 ): Promise<RecommendationResult> {
-  const profile = buildSearchProfile(apps)
-  const key = cacheKey(userId, apps, profile)
+  const profile = buildSearchProfile(apps, targets)
+  const key = cacheKey(userId, apps, targets, profile)
   const cached = cache.get(key)
   if (cached && cached.expires > Date.now()) return cached.value
 
@@ -387,6 +426,7 @@ export async function recommendJobs(
     profile: {
       titles: profile.titles,
       keywords: profile.keywords.slice(0, 12),
+      targetTitles: profile.targetTitles,
     },
     jobs: jobs.slice(0, MAX_JOBS),
   }

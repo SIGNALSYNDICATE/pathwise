@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
+<<<<<<< Updated upstream
 import { createServerSupabase } from '@/lib/supabase'
+=======
+import { isMissingSchema, requireUser } from '@/lib/apiAuth'
+>>>>>>> Stashed changes
 import {
   InsufficientProfileError,
   JobBoardsUnavailableError,
@@ -9,12 +13,16 @@ import {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+<<<<<<< Updated upstream
 const supabase = createServerSupabase()
 
+=======
+>>>>>>> Stashed changes
 const ALLOWED_ORIGINS = new Set([
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'https://job-dash-ashy.vercel.app',
+  'https://34c9-105-164-69-197.ngrok-free.app',
 ])
 
 function corsHeaders(req: Request): HeadersInit {
@@ -47,36 +55,21 @@ export async function OPTIONS(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization') ?? ''
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-    if (!token) {
-      return json(req, { error: 'unauthorized', message: 'Missing auth token.' }, 401)
-    }
-
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser(token)
-    if (authErr || !user) {
-      return json(
-        req,
-        { error: 'unauthorized', message: 'Session expired — please sign in again.' },
-        401
-      )
-    }
+    const auth = await requireUser(req)
+    if ('response' in auth) return auth.response
 
     // job_description is added by a migration that is not on every database yet.
     // PostgREST rejects the whole query when a selected column is missing.
-    let { data: apps, error } = await supabase
+    let { data: apps, error } = await auth.supabase
       .from('job_applications')
       .select('company, role, resume_data, job_description, date_applied')
-      .eq('user_id', user.id)
+      .eq('user_id', auth.user.id)
 
     if (error?.code === '42703') {
-      const fallback = await supabase
+      const fallback = await auth.supabase
         .from('job_applications')
         .select('company, role, resume_data, date_applied')
-        .eq('user_id', user.id)
+        .eq('user_id', auth.user.id)
       apps = fallback.data
       error = fallback.error
     }
@@ -86,7 +79,26 @@ export async function GET(req: Request) {
       return json(req, { error: 'db_error', message: 'Could not load your applications.' }, 500)
     }
 
-    const result = await recommendJobs(user.id, apps || [])
+    const { data: profile, error: targetError } = await auth.supabase
+      .from('profiles')
+      .select('target_roles')
+      .eq('user_id', auth.user.id)
+      .maybeSingle()
+
+    let targetTitles: string[] = []
+    if (targetError && targetError.code !== '42703' && !isMissingSchema(targetError)) {
+      console.error('Recommendation target error:', targetError)
+      return json(req, { error: 'db_error', message: 'Could not load your target roles.' }, 500)
+    }
+    if (!targetError && Array.isArray(profile?.target_roles)) {
+      targetTitles = profile.target_roles.filter((role): role is string => typeof role === 'string')
+    }
+
+    const result = await recommendJobs(
+      auth.user.id,
+      apps || [],
+      targetTitles.map((title) => ({ title }))
+    )
     return json(req, result)
   } catch (error) {
     if (error instanceof InsufficientProfileError) {
