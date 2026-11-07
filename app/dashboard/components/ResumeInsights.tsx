@@ -83,7 +83,7 @@ export default function ResumeInsights({ applications }: { applications: any[] }
       {!result && !loading && (
         <div className="space-y-3">
           <p className="text-sm text-gray-300">
-            Select a saved application. Gemma will analyze the CV you used for that job and optimize it against the target Job Description.
+            Select a saved application. AI will analyze the CV you used for that job and optimize it against the target Job Description.
           </p>
           
           <select
@@ -104,7 +104,7 @@ export default function ResumeInsights({ applications }: { applications: any[] }
             disabled={!selectedAppId}
             className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#e67600] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#cf6900] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Sparkles className="h-4 w-4" /> Optimize with Gemma
+            <Sparkles className="h-4 w-4" /> Optimize with AI
           </button>
         </div>
       )}
@@ -112,7 +112,7 @@ export default function ResumeInsights({ applications }: { applications: any[] }
       {loading && (
         <div className="flex items-center justify-center gap-3 py-8">
           <Loader2 className="h-5 w-5 animate-spin text-[#e67600]" />
-          <span className="text-sm text-gray-300">Gemma is rewriting your CV...</span>
+          <span className="text-sm text-gray-300">AI is rewriting your CV...</span>
         </div>
       )}
 

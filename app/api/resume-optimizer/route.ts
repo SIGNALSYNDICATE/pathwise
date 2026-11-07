@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase'
+import OpenAI from 'openai'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const supabase = createServerSupabase()
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(req: Request) {
   try {
@@ -24,12 +30,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'invalid_input', message: 'Please provide a longer CV text.' }, { status: 400 })
     }
 
-    // 3. Call Gemma (OpenAI-compatible endpoint)
-    const apiKey = process.env.GEMMA_API_KEY
-    const model = process.env.GEMMA_MODEL ?? 'gemma-3-27b-it'
-
-    if (!apiKey) {
-      return NextResponse.json({ error: 'config_error', message: 'GEMMA_API_KEY is not set.' }, { status: 500 })
+    // 3. Call OpenAI
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({ error: 'config_error', message: 'OPENAI_API_KEY is not set.' }, { status: 500 })
     }
 
     const prompt = `You are an expert ATS (Applicant Tracking System) resume optimizer. 
@@ -58,31 +61,15 @@ Return EXACTLY this JSON shape:
   "optimized_cv": "The full, rewritten CV text ready to be copy-pasted."
 }`
 
-    const aiUrl = `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`
-
-    const aiRes = await fetch(aiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2, // Lower temp for CV rewriting to keep it grounded
-        response_format: { type: 'json_object' },
-        max_tokens: 4096,
-      }),
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2, // Lower temp for CV rewriting to keep it grounded
+      response_format: { type: 'json_object' },
+      max_tokens: 4096,
     })
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text().catch(() => '')
-      console.error('Gemma Resume error:', aiRes.status, errText)
-      return NextResponse.json({ error: 'ai_failed', message: `AI error ${aiRes.status}` }, { status: 502 })
-    }
-
-    const raw = await aiRes.json()
-    const content = raw.choices?.[0]?.message?.content ?? '{}'
+    const content = completion.choices[0].message.content ?? '{}'
     
     let parsed: any
     try {
@@ -95,6 +82,14 @@ Return EXACTLY this JSON shape:
     return NextResponse.json(parsed)
   } catch (e: any) {
     console.error('Resume optimizer error:', e)
-    return NextResponse.json({ error: 'ai_failed', message: e.message }, { status: 500 })
+
+    if (e?.status === 401) {
+      return NextResponse.json({ error: 'ai_failed', message: 'OpenAI API key is invalid.' }, { status: 502 })
+    }
+    if (e?.status === 429) {
+      return NextResponse.json({ error: 'ai_failed', message: 'OpenAI rate limit reached.' }, { status: 502 })
+    }
+
+    return NextResponse.json({ error: 'ai_failed', message: e.message ?? 'Unknown error' }, { status: 500 })
   }
 }
