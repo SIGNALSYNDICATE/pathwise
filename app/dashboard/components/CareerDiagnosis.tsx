@@ -52,7 +52,7 @@ export default function CareerDiagnosis({ supabase, cvText, jobDescription }: Pr
           <h2 className="text-lg font-semibold">AI Career Diagnosis</h2>
         </div>
         <p className="mt-2 text-sm text-gray-300">
-          Let Gemma analyze your application history and CV to find where you&apos;re losing opportunities.
+          Analyze your application history and CV to find where you&apos;re losing opportunities.
         </p>
         <button
           onClick={run}
@@ -69,7 +69,7 @@ export default function CareerDiagnosis({ supabase, cvText, jobDescription }: Pr
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0a3a3a] p-6">
         <Loader2 className="h-5 w-5 animate-spin text-[#e67600]" />
-        <span className="text-sm text-gray-300">Gemma is analyzing your application data…</span>
+        <span className="text-sm text-gray-300">analyzing your application data…</span>
       </div>
     )
   }
