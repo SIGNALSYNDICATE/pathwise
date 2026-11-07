@@ -1,4 +1,6 @@
 // app/dashboard/components/DashboardHeader.tsx
+import Link from 'next/link'
+
 interface DashboardHeaderProps {
   onLogout: () => void
 }
@@ -12,12 +14,20 @@ export default function DashboardHeader({ onLogout }: DashboardHeaderProps) {
           <p className="text-orange-200 text-sm">Your Job Application Command Center</p>
         </div>
         
-        <button
-          onClick={onLogout}
-          className="bg-[#e67600] hover:bg-[#d46900] text-white px-6 py-2 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/recommendations"
+            className="border border-[#e67600] text-[#e67600] hover:bg-[#e67600] hover:text-white px-5 py-2 rounded-lg font-semibold transition-all duration-200"
+          >
+            Recommended
+          </Link>
+          <button
+            onClick={onLogout}
+            className="bg-[#e67600] hover:bg-[#d46900] text-white px-6 py-2 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </header>
   )
