@@ -179,7 +179,7 @@ export default function SuccessAnalysis({
             Success Analysis
           </h2>
           <p className="mt-1 text-sm text-orange-200">
-            Career insights powered by Gemma 4
+            Career insights
           </p>
         </div>
       </div>
@@ -273,7 +273,7 @@ export default function SuccessAnalysis({
             Discover your career patterns
           </p>
           <p className="mt-1 text-xs leading-5 text-orange-200">
-            Gemma will analyze your application outcomes and suggest
+            Analyze your application outcomes and suggest
             practical next steps based on your recorded data.
           </p>
         </div>
