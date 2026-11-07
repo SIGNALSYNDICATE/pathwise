@@ -38,7 +38,7 @@ begin
 
   label_title := left(regexp_replace(ad.title, '[[:cntrl:]]+', ' ', 'g'), 60);
   label_company := left(regexp_replace(ad.company, '[[:cntrl:]]+', ' ', 'g'), 60);
-  alert_message := 'Pathwise: New opportunity - ' || label_title || ' at ' || label_company || '.';
+  alert_message := 'Pathwise: New opportunity - ' || label_title || ' at ' || label_company || '. Log in to view: https://job-dash-ashy.vercel.app/';
 
   select exists (
     select 1

@@ -3,6 +3,15 @@ import { isDeliverableMobile } from '@/lib/phone'
 import { SmsDeliveryError, sendSms } from '@/lib/sms'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const LOGIN_URL = 'https://job-dash-ashy.vercel.app/'
+const MESSAGE_MAX = 480
+
+function withLoginLink(message: string): string {
+  if (message.includes(LOGIN_URL)) return message
+  const linked = `${message} Log in to view: ${LOGIN_URL}`
+  if (linked.length <= MESSAGE_MAX) return linked
+  return `${message.slice(0, MESSAGE_MAX - ` Log in to view: ${LOGIN_URL}`.length).trimEnd()} Log in to view: ${LOGIN_URL}`
+}
 
 export type SmsAlert = {
   notification_id: string
@@ -48,7 +57,7 @@ export async function deliverAlert(
   alert: SmsAlert
 ): Promise<boolean> {
   try {
-    const receipt = await sendSms(alert.phone_e164, alert.message)
+    const receipt = await sendSms(alert.phone_e164, withLoginLink(alert.message))
     await finalize(supabase, secret, alert.notification_id, 'sent', receipt.transactionId)
     return true
   } catch (error) {
