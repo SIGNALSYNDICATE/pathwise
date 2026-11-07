@@ -14,7 +14,19 @@ export default function DashboardHeader({ onLogout }: DashboardHeaderProps) {
           <p className="text-orange-200 text-sm">Your Job Application Command Center</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/dashboard/profile"
+            className="border border-white/30 text-white hover:border-[#e67600] hover:text-[#e67600] px-5 py-2 rounded-lg font-semibold transition-all duration-200"
+          >
+            Profile
+          </Link>
+          <Link
+            href="/dashboard/opportunities"
+            className="border border-[#e67600] text-[#e67600] hover:bg-[#e67600] hover:text-white px-5 py-2 rounded-lg font-semibold transition-all duration-200"
+          >
+            Opportunities
+          </Link>
           <Link
             href="/dashboard/recommendations"
             className="border border-[#e67600] text-[#e67600] hover:bg-[#e67600] hover:text-white px-5 py-2 rounded-lg font-semibold transition-all duration-200"

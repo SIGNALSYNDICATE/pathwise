@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Briefcase, ExternalLink, MapPin, Search } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import TargetRolesForm from '../components/TargetRolesForm'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 type RecommendedJob = {
   id: string
@@ -20,7 +26,7 @@ type RecommendedJob = {
 
 type RecommendationResponse = {
   count: number
-  profile: { titles: string[]; keywords: string[] }
+  profile: { titles: string[]; keywords: string[]; targetTitles?: string[] }
   jobs: RecommendedJob[]
 }
 
@@ -38,6 +44,7 @@ export default function RecommendationsPage() {
   const [result, setResult] = useState<RecommendationResponse | null>(null)
   const [query, setQuery] = useState('')
   const [minScore, setMinScore] = useState(30)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -80,7 +87,7 @@ export default function RecommendationsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadKey])
 
   const jobs = useMemo(() => {
     const list = result?.jobs ?? []
@@ -112,15 +119,25 @@ export default function RecommendationsPage() {
             </Link>
             <h1 className="text-2xl font-bold text-white">Recommended jobs</h1>
             <p className="text-orange-200 text-sm">
-              {result ? `${result.count} roles matched to your applications` : 'Roles matched to your applications'}
+              {result
+                ? `${result.count} roles matched to your target roles, applications, and CV`
+                : 'Roles matched to your target roles, applications, and CV'}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="bg-[#e67600] hover:bg-[#d46900] text-white px-6 py-2 rounded-lg font-semibold transition-all duration-200"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/profile"
+              className="border border-white/30 text-white hover:border-[#e67600] hover:text-[#e67600] px-5 py-2 rounded-lg font-semibold transition-colors"
+            >
+              Profile
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="bg-[#e67600] hover:bg-[#d46900] text-white px-6 py-2 rounded-lg font-semibold transition-all duration-200"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -136,12 +153,17 @@ export default function RecommendationsPage() {
             <p className="text-lg font-semibold">{emptyProfile ? 'Nothing to match yet' : 'Recommendations unavailable'}</p>
             <p className="text-orange-100/80 max-w-xl mx-auto">{error}</p>
             {emptyProfile && (
-              <Link
-                href="/dashboard"
-                className="inline-flex mt-2 bg-[#e67600] hover:bg-[#d46900] text-white px-5 py-2 rounded-lg font-semibold"
-              >
-                Back to applications
-              </Link>
+              <div className="max-w-xl mx-auto text-left pt-2">
+                <TargetRolesForm
+                  initialRoles={[]}
+                  onSaved={() => {
+                    setError(null)
+                    setEmptyProfile(false)
+                    setLoading(true)
+                    setReloadKey((current) => current + 1)
+                  }}
+                />
+              </div>
             )}
           </div>
         )}
@@ -177,7 +199,10 @@ export default function RecommendationsPage() {
 
             {result.profile.titles.length > 0 && (
               <p className="text-sm text-orange-100/80">
-                Based on {result.profile.titles.join(', ')}
+                {(result.profile.targetTitles?.length ?? 0) > 0
+                  ? `Targets: ${result.profile.targetTitles?.join(', ')}. `
+                  : ''}
+                Searching {result.profile.titles.join(', ')}
                 {result.profile.keywords.length > 0 ? ` · ${result.profile.keywords.slice(0, 6).join(', ')}` : ''}
               </p>
             )}

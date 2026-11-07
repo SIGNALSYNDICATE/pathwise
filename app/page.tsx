@@ -58,6 +58,8 @@ export default function Login() {
 
       if (error) {
         alert('Sign up failed: ' + error.message)
+      } else if (data.session) {
+        router.push('/onboarding')
       } else {
         alert('Sign up successful! Please check your email for verification.')
       }
